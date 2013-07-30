@@ -14,11 +14,11 @@
     %canvas#neoviz
     %header
       %section#title
-        %h1 JRubyConf.EU Connection Neovigator
+        %h1 The Conference 2013 Connection Neovigator
         %p RFID Tag Graph Browser
       %section#search
         %form{:action => "/", :method => "get"}
-          %label Username:
+          %label Tagname:
           %input#neoid{:type => "text", :value => "#{@user}", :name => "user"}
           %input#loadnode{:type => "submit", :value => "Load", :class => "button"}
       %br{:style => "clear: both;"}
@@ -29,8 +29,8 @@
         / Neovigator introduction
         %h2 About
         %p
-          This Neo4j database contains the TALK-relationships from the RFID tagging of 
-          %a{:href => "https://JRubyConf.EU", :target=>"_blank"} JRubyConf.EU
+          This Neo4j database contains the interaction+recording from the RFID tagging of 
+          %a{:href => "http://mediaevolution.se/theconference/#!/", :target=>"_blank"} The Conference Malmö 2013
         %p
           Neovigator is an attempt to visually navigate through 
           %a{:href => "http://neo4j.org"} Neo4j 

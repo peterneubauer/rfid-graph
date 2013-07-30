@@ -3,6 +3,7 @@ require 'neography'
 require 'sinatra/base'
 require 'uri'
 require 'lib/cypher'
+require 'open-uri'
 
 class Neovigator < Sinatra::Application
   set :haml, :format => :html5 
@@ -31,7 +32,7 @@ class Neovigator < Sinatra::Application
 
 NEIGHBOURS = "START actor1 = node({id})
 MATCH actor1<-[r:INTERACTION_ACTOR]-()-[:INTERACTION_ACTOR]->actor2
-RETURN actor2.name, ID(actor2) as id, r, type(r) as type  ORDER BY actor2.name"
+RETURN actor2.name as name, ID(actor2) as id, r, type(r) as type  ORDER BY name"
 
   def node_id(node)
     case node
@@ -51,15 +52,38 @@ START="14044"
     return neo.get_node(id) if id =~ /\d+/
     #return (neo.get_node_auto_index("tag",id)||[]).first || neo.get_node(id)
   end
+
+  #read the user mappings from a json file
+  def guid_for(tag_id)
+    mappings = MultiJson.load(IO.read("tagid_guid.json"))
+    return mappings[tag_id]
+  end
   
-  def get_info(props)
-    puts "get_info props: "+props.to_s
-    properties = "<ul>"
-    properties << "<li><b>Tag:</b> #{props["tag"]}</li>"
-    properties << "<li><b>Name:</b> #{props.name}</li>"
-    properties << "<li><b>Twitter:</b> <a href='http://twitter.com/#{props["twitter"]}'>#{props["twitter"]}</a></li>"
-    properties << "<li><b>Github:</b> <a href='http://twitter.com/#{props["github"]}'>#{props["github"]}</a></li>"
-    properties + "</ul>"
+  def get_user_details(tag_id)
+    guid = guid_for(tag_id)
+    if(!guid)
+      return  {
+          "firstname"=>tag_id,
+          "surname"=>"",
+          "twitterId"=>"1234",
+          "photo"=>"http://creationwiki.org/pool/images/0/0f/Person.png"
+      }
+    end
+    return JSON.parse(open("https://api.qnekt.com/user/"+guid).read)
+  end
+  
+  def get_info(props, tag_id)
+    #puts "get_info props: "+props.to_s
+    userdetails =  get_user_details(tag_id)
+    puts userdetails.to_s
+    name = "#{userdetails['firstname']} #{userdetails['surname']}"
+    properties = "<h2>User: #{name}</h2>\n"
+    properties << "<img src=\"#{userdetails["photo"]}\" width=\"100\"/><br/>"
+    properties << "<p class='summary'>\n"
+    properties << "<ul id=user_info>"
+    properties << "<li><b>Twitter:</b> <a href='https://twitter.com/account/redirect_by_id?id=#{userdetails["twitterId"]}'>#{name}</a></li>"
+    properties << "<li><b>Tag:</b> #{tag_id}</li>"
+    properties + "</ul></p>"
   end
   
   def get_properties(node)
@@ -93,13 +117,18 @@ NA="No Relationships"
     id = params[:id]
     node = node_for(id)
     props = get_properties(node)
-    user = props.name
+    userdetails = get_user_details(id)
+    user = "#{userdetails['firstname']} #{userdetails['surname']}"
     rels = get_connections(id.to_i)
     attributes = rels.collect { |keys, values| {:id => keys.last, :name => keys.join(":"), :values => values } }
-    attributes = [{:id => "N/A", :name => NA, :values => [{:id => id, :name => NA}]}] if attributes.empty?
+    attributes = [{:id => NA, :name => NA, :values => [{:id => id, :name => NA}]}] if attributes.empty?
 
-    @node = {:details_html => "<h2>User: #{user}</h2>\n<p class='summary'>\n#{get_info(props)}</p>\n",
-             :data => {:attributes => attributes, :name => user, :id => id }}.to_json
+    @node = {:details_html => get_info(props, id),
+             :data => {
+                 :attributes => attributes, 
+                 :name => user, 
+                 :id => id, 
+                 :guid=>guid_for(id) }}.to_json
   end
 
   get '/resources/show2' do
